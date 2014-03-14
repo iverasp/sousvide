@@ -1,7 +1,7 @@
 ## Hardware
 
 The water bath consists of the following parts:
-- Omron G3PA-210B-VD + heatsink
+- Omron G3PA-210B-VD SSR + heatsink
 - Rotary encoder (w/push button) + knob
 - HY_TFT240_262k LCD
 - ATMega328p @ 16MHz
