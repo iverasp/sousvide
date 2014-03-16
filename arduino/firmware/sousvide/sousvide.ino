@@ -1,91 +1,121 @@
 #include <UTFT.h>
 // from http://henningkarlsen.com/electronics/library.php?id=51
-#include <Encoder.h>
-// from http://www.pjrc.com/teensy/td_libs_Encoder.html
+#include <Wire.h>
+#include <EEPROM.h>
+#include <PID_v1.h>
+
+#define btnPin 4
+#define relayPin 2
+
+/*
+// Declare variables for PID
+double Setpoint, Input, Output;
+PID pid(&Input, &Output, &Setpoint,2,5,1, DIRECT);
+int WindowSize = 5000;
+unsigned long windowStartTime;
+*/
 
 // Declare which fonts we will be using
+extern uint8_t arial_bold[];
+extern uint8_t Shruti_Bold_num_48x70[];
 extern uint8_t DotMatrix_M[];
 
 // Setup LCD
-UTFT lcd(ILI9325C,19,18,17,16);
+UTFT lcd(ILI9325C,A3,A2,A0);
 /*
-RS -> 19 / A5
-RW -> 18 / A4
-CS -> 17 / A3
-RST -> 16 / A2
+RS -> 19 / A3
+RW -> 18 / A2
+RST -> 16 / A0
 */
 
-// Setup rotary encoder
-Encoder enc(2, 3);
-float oldPos = -999.;
-float setTemp = 30.;
-float readTemp = setTemp;
-int btnPin = 4;
+float dial;
+float dialOld;
+float setTemp = dial;
+float actual = 30;
 
 // Declare screen size
 int WIDTH = 320;
 int HEIGHT = 240;
 int HEADER = 40;
+int PADDING = 8;
+int CENTERING = 7;
+byte res = 0;
+int k = 15;
+int varTxt = 245;
+int realAct = 63;
 
 void setup() {
   
   Serial.begin(9600);
   
-  enc.write(10);
+  Wire.begin();
+  
   pinMode(btnPin, INPUT);
   
+  dial = readEEPROM();
+  setTemp = dial;
   
   lcd.InitLCD();
-  lcd.setFont(DotMatrix_M);
+  lcd.setFont(arial_bold);
   
   lcd.clrScr();
-  mySetColor();
-  lcd.fillScr(15, 30, 80);
+ 
+  lcd.fillScr(29, 41, 81); // 15, 30, 80
+  lcd.setBackColor(29, 41, 81);
   
-  lcd.setColor(40, 40, 140);
-  lcd.fillRect(0, 0, WIDTH, HEADER);
-  
-  lcd.setColor(255, 255, 255);
-  lcd.setBackColor(40, 40, 140);
-  lcd.print("settings", LEFT + 10, 10);
   lcd.setColor(255, 165, 0);
-  lcd.setBackColor(15, 30, 80);
-  lcd.print("dial:", LEFT + 10, 120);
-  lcd.print("set:", RIGHT - 25, 120);
-  lcd.print("act:", CENTER, 120);
-  lcd.printNumF(setTemp, 1, RIGHT - 60, 150, ',', 3, '    ');
-  //addRow(HEADER + 5);
+  lcd.print("actual", CENTER, 240 / 2 - lcd.getFontYsize() - 53);
+  int arial_bold_width = lcd.getFontXsize();
+  int arial_bold_height = lcd.getFontYsize();
+  lcd.print("dial", LEFT + PADDING, 60 + k);
+  lcd.print("set", RIGHT - PADDING, 60 + k);
+  lcd.setFont(Shruti_Bold_num_48x70);
+  lcd.setColor(255,255,255);
+  int shruti_bold_width = lcd.getFontXsize();
+  int shruti_bold_height = lcd.getFontYsize();
+  lcd.printNumI(realAct, (int) lcd.getDisplayXSize() / 2 - shruti_bold_width - arial_bold_width + CENTERING, 60 + k);
+  lcd.setFont(DotMatrix_M);
+  lcd.printNumF(setTemp, 1, varTxt, 60 + lcd.getFontYsize() + k, ',', 3, '    ');
+  
+  lcd.setFont(arial_bold);
+  lcd.printNumI((int) 7, (int) lcd.getDisplayXSize() / 2 + 35 + CENTERING, 60 + k + (int) shruti_bold_height / 2 - (int) arial_bold_height / 2);
+ 
+  lcd.setFont(DotMatrix_M);
+
 }
   
 void loop() {
+  Serial.println("418 - I'm a water bath");
+ 
+  Wire.requestFrom(4, 1);
+ 
+  while(Wire.available())
+  {
+  dial = (float) Wire.read() / 2;
+  }
+  
+  if (dial != dialOld) {
 
-  float newPos = enc.read() / 8.;
-  Serial.println(enc.read());
-  if (newPos > 99) enc.write(99. * 8.);
-  if (newPos < 10) enc.write(10. * 8.);
-  if (newPos != oldPos && newPos >= 10 && newPos <= 99) {
-    oldPos = newPos;
-    lcd.printNumF(newPos, 1, LEFT + 10, 150, ',', 3, '    ');
+    dialOld = dial;
+    lcd.printNumF(dial, 1, LEFT + PADDING, 60 + lcd.getFontYsize() + k, ',', 3, '    ');
   }
   
   if (digitalRead(btnPin) == HIGH) {
-    readTemp = newPos;
-    setTemp = readTemp;
-    lcd.printNumF(setTemp, 1, RIGHT - 60, 150, ',', 3, '    ');
+    setTemp = dial;
+    lcd.printNumF(setTemp, 1, varTxt, 60 + lcd.getFontYsize() + k, ',', 3, '    ');
+    writeEEPROM(setTemp);
   }
   
 }
 
-void mySetColor() {
-  lcd.setColor(15, 30, 80);
+float readEEPROM() {
+  byte tmp = EEPROM.read(0);
+  float result = (float)(tmp) / 2;
+  return result;
 }
 
-void mySetBackColor() {
-  lcd.setBackColor(15, 30, 80);
+void writeEEPROM(float val) {
+  byte tmp = (byte) (val * 2);
+  EEPROM.write(0, tmp);
 }
-
-void addRow(int startPos) {
-  lcd.setColor(0,0,0);
-  lcd.drawLine(0, startPos, lcd.getDisplayXSize(), startPos);
-  lcd.drawLine(0, startPos + lcd.getFontYsize(), lcd.getDisplayXSize(), startPos + lcd.getFontYsize());
-}
+  
