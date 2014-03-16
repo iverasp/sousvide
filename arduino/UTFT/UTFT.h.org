@@ -180,7 +180,7 @@ class UTFT
 {
 	public:
 		UTFT();
-		UTFT(byte model, int RS, int WR, int RST, int SER=0);
+		UTFT(byte model, int RS, int WR,int CS, int RST, int SER=0);
 		void	InitLCD(byte orientation=LANDSCAPE);
 		void	clrScr();
 		void	drawPixel(int x, int y);
